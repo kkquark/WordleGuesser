@@ -1,0 +1,14 @@
+# setup file for WORDLE Guesser program
+
+# file names and paths
+Previous = Previous WORDLEs.txt
+Current = WORDLEs.txt
+Vocabulary = Scrabble Words.txt
+
+# width of display
+Line length = 150			# used to display barchart
+
+# values for calculating word scores
+letter multiplier = 10
+first multiplier = 20
+last multiplier = 15
