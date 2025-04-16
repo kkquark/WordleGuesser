@@ -190,26 +190,42 @@ def get_result(guess):
     return result
 
 
-def reduce_words(possible_words, guess, result, can, must, definite):
+def reduce_words(possible_words, guess, result, can, at_least, definite):
     """Reduce the list of remaining possible words based on the latest (and previous) guesses and results."""
+    # adjust the at_least dictionary based on the results of the latest guess
+    # count the number of each letter in the word (to handle doubles and triples)
+    letter_count = {}
+    for i, c in enumerate(result):
+        if c == RIGHT_RIGHT or c == RIGHT_WRONG:
+            if c not in letter_count:
+                letter_count[c] = 1
+            else:
+                letter_count[c] = letter_count[c] + 1
+
+    # now transfer this knowledge to the at_least dictionary
+    for key, value in letter_count:
+        if key not in at_least:
+            at_least[key] = value
+        else
+            at_least[key] = max(at_least[key], value)
+
     # look at each of the results for the letter positions
     for i, c in enumerate(result):
         # right letter in the right place
-        # set the clues variables: _can_ have this letter, _is_ this letter, _must_ have this letter
+        # set the clues variables: _can_ have this letter, _is_ this letter
         if c == RIGHT_RIGHT:
             can[i] = guess[i]
             definite[i] = guess[i]
-            if not (guess[i] in must):
-                must.append(guess[i])
-        # right letter in the wrong place
-        # set clues variable: _can_ NOT have this letter here, _must_ have this letter somewhere
-        elif c == RIGHT_WRONG:
-            can[i] = can[i].replace(guess[i], "")
-            if not (guess[i] in must):
-                must.append(guess[i])
 
-    # repeat looking at clues, but only process wrong letters (no right place)
     for i, c in enumerate(result):
+        # right letter in the wrong place
+        # set clues variable: _can_ NOT have this letter here
+        if c == RIGHT_WRONG:
+            # this letter cannot be in this position
+            can[i] = can[i].replace(guess[i], "")
+
+    for i, c in enumerate(result):
+        # wrong letter (and wrong place, of course)
         if c == WRONG_WRONG:
             # if the letter is wrong, but it is also a _must_, it can't be in this position, but allow it to be elsewhere
             if guess[i] in must and guess[i] not in definite:
@@ -221,21 +237,27 @@ def reduce_words(possible_words, guess, result, can, must, definite):
                     if definite[j] == "":
                         can[j] = cans.replace(guess[i], "")
 
+    # now filter out all the words that don't fit the criteria
     new_word_list = []
     for word in possible_words:
         good_word = True
+
         # is each of the definite letters in the word in the right place?
         for j, c in enumerate(word):
             if definite[j] != "" and c != definite[j]:
                 good_word = False
                 break
+
         # is each letter in the list of possibles for that position?
+        # note that for definites, the only possible letter is the definite letter
         if good_word:
             for j, c in enumerate(word):
                 if can[j].find(c) < 0:
                     good_word = False
                     break
+
         # does the word contain all required letters?
+        # note: definite letters are not counted in the required letters
         if good_word:
             for c in must:
                 if word.find(c) < 0:
@@ -243,6 +265,7 @@ def reduce_words(possible_words, guess, result, can, must, definite):
                     break
             if good_word:
                 new_word_list.append(word)
+
     return new_word_list
 
 
@@ -364,7 +387,8 @@ def process_guesses(wordlist, WORDLE_list):
     """Process WORDLE word guesses until a full round is complete."""
     guess_list = []
     can = []
-    must = []
+#    must = []
+    at_least = {c: 0 for c in ALPHABET}
     definite = []
     for _ in range(WORDLE_LENGTH):
         can.append(ALPHABET)
@@ -383,7 +407,7 @@ def process_guesses(wordlist, WORDLE_list):
         if result == RIGHT_RIGHT * WORDLE_LENGTH or RIGHT_WORD in result:
             break
         # cut out all the words that don't match our patterns
-        possibles = reduce_words(possibles, guess, result, can, must, definite)
+        possibles = reduce_words(possibles, guess, result, can, at_least, definite)
         # split the possibles list into non-used and previously-used words
         new_possibles, old_possibles = split_possibles(possibles, WORDLE_list)
         # calculate a probability of each word being correct (algorithm in progress)
