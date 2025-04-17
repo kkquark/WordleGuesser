@@ -197,47 +197,45 @@ def reduce_words(possible_words, guess, result, can, at_least, definite):
     letter_count = {}
     for i, c in enumerate(result):
         if c == RIGHT_RIGHT or c == RIGHT_WRONG:
-            if c not in letter_count:
-                letter_count[c] = 1
+            lett = guess[i]
+            if lett not in letter_count:
+                letter_count[lett] = 1
             else:
-                letter_count[c] = letter_count[c] + 1
+                letter_count[lett] = letter_count[lett] + 1
 
-    # now transfer this knowledge to the at_least dictionary
-    for key, value in letter_count:
-        if key not in at_least:
-            at_least[key] = value
-        else
-            at_least[key] = max(at_least[key], value)
+    # now transfer this knowledge to the at_least dictionary pattern
+    for lett, value in letter_count.items():
+        if lett not in at_least:
+            at_least[lett] = value
+        else:
+            at_least[lett] = max(at_least[lett], value)
 
-    # look at each of the results for the letter positions
+    # look at each of the results for the letter positions in order to set the "can have" and "is" patterns
     for i, c in enumerate(result):
+        # make the letter easily available
+        lett = guess[i]
+
         # right letter in the right place
-        # set the clues variables: _can_ have this letter, _is_ this letter
+        # set the clues variables: _can have_ this letter, _is_ this letter
         if c == RIGHT_RIGHT:
-            can[i] = guess[i]
-            definite[i] = guess[i]
+            can[i] = lett
+            definite[i] = lett
 
-    for i, c in enumerate(result):
         # right letter in the wrong place
-        # set clues variable: _can_ NOT have this letter here
-        if c == RIGHT_WRONG:
+        # set the clues variable: _can NOT have_ this letter here
+        elif c == RIGHT_WRONG:
             # this letter cannot be in this position
-            can[i] = can[i].replace(guess[i], "")
+            can[i] = can[i].replace(lett, "")
 
-    for i, c in enumerate(result):
         # wrong letter (and wrong place, of course)
-        if c == WRONG_WRONG:
-            # if the letter is wrong, but it is also a _must_, it can't be in this position, but allow it to be elsewhere
-            if guess[i] in must and guess[i] not in definite:
-                can[i] = can[i].replace(guess[i], "")
-            # if the wrong letter is not a must, it doesn't belong anywhere
-            # also, if it is a must, but is also already a definite, it doesn't belong anywhere else
-            else:
-                for j, cans in enumerate(can):
-                    if definite[j] == "":
-                        can[j] = cans.replace(guess[i], "")
+        # adjust the clue variable: _can NOT have_ this letter anywhere (except definites)
+        elif c == WRONG_WRONG:
+            # a wrong letter means this letter does not belong in any slot that is not already definite
+            for j, cans in enumerate(can):
+                if definite[j] == "":
+                    can[j] = cans.replace(lett, "")
 
-    # now filter out all the words that don't fit the criteria
+    # now filter out all the words that don't fit the patterns
     new_word_list = []
     for word in possible_words:
         good_word = True
@@ -259,10 +257,21 @@ def reduce_words(possible_words, guess, result, can, at_least, definite):
         # does the word contain all required letters?
         # note: definite letters are not counted in the required letters
         if good_word:
-            for c in must:
-                if word.find(c) < 0:
+            # first, count all the letters in this word
+            letter_count = {}
+            for lett in word:
+                if lett not in letter_count:
+                    letter_count[lett] = 1
+                else:
+                    letter_count[lett] = letter_count[lett] + 1
+
+            # now see if the word contains at least the number of each letter required so far
+            for lett, count in at_least.items():
+                if lett not in letter_count or letter_count[lett] < count:
                     good_word = False
                     break
+
+            # if this word passed all tests, add it to the new word list
             if good_word:
                 new_word_list.append(word)
 
@@ -387,8 +396,7 @@ def process_guesses(wordlist, WORDLE_list):
     """Process WORDLE word guesses until a full round is complete."""
     guess_list = []
     can = []
-#    must = []
-    at_least = {c: 0 for c in ALPHABET}
+    at_least = {}
     definite = []
     for _ in range(WORDLE_LENGTH):
         can.append(ALPHABET)
@@ -491,4 +499,4 @@ def main(setup_filename):
 # start the main app
 if __name__ == '__main__':
     main(SETUP_FILENAME)
-# test Evergreen branch on GITHUB
+# Evergreen branch on GITHUB
