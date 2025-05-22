@@ -190,59 +190,91 @@ def get_result(guess):
     return result
 
 
-def reduce_words(possible_words, guess, result, can, must, definite):
+def reduce_words(possible_words, guess, result, can, at_least, definite):
     """Reduce the list of remaining possible words based on the latest (and previous) guesses and results."""
-    # look at each of the results for the letter positions
+    # adjust the at_least dictionary based on the results of the latest guess
+    # count the number of each letter in the word (to handle doubles and triples)
+    letter_count = {}
     for i, c in enumerate(result):
-        # right letter in the right place
-        # set the clues variables: _can_ have this letter, _is_ this letter, _must_ have this letter
-        if c == RIGHT_RIGHT:
-            can[i] = guess[i]
-            definite[i] = guess[i]
-            if not (guess[i] in must):
-                must.append(guess[i])
-        # right letter in the wrong place
-        # set clues variable: _can_ NOT have this letter here, _must_ have this letter somewhere
-        elif c == RIGHT_WRONG:
-            can[i] = can[i].replace(guess[i], "")
-            if not (guess[i] in must):
-                must.append(guess[i])
-
-    # repeat looking at clues, but only process wrong letters (no right place)
-    for i, c in enumerate(result):
-        if c == WRONG_WRONG:
-            # if the letter is wrong, but it is also a _must_, it can't be in this position, but allow it to be elsewhere
-            if guess[i] in must and guess[i] not in definite:
-                can[i] = can[i].replace(guess[i], "")
-            # if the wrong letter is not a must, it doesn't belong anywhere
-            # also, if it is a must, but is also already a definite, it doesn't belong anywhere else
+        if c == RIGHT_RIGHT or c == RIGHT_WRONG:
+            lett = guess[i]
+            if lett not in letter_count:
+                letter_count[lett] = 1
             else:
-                for j, cans in enumerate(can):
-                    if definite[j] == "":
-                        can[j] = cans.replace(guess[i], "")
+                letter_count[lett] = letter_count[lett] + 1
 
+    # now transfer this knowledge to the at_least dictionary pattern
+    for lett, value in letter_count.items():
+        if lett not in at_least:
+            at_least[lett] = value
+        else:
+            at_least[lett] = max(at_least[lett], value)
+
+    # look at each of the results for the letter positions in order to set the "can have" and "is" patterns
+    for i, c in enumerate(result):
+        # make the letter easily available
+        lett = guess[i]
+
+        # right letter in the right place
+        # set the clues variables: _can have_ this letter, _is_ this letter
+        if c == RIGHT_RIGHT:
+            can[i] = lett
+            definite[i] = lett
+
+        # right letter in the wrong place
+        # set the clues variable: _can NOT have_ this letter here
+        elif c == RIGHT_WRONG:
+            # this letter cannot be in this position
+            can[i] = can[i].replace(lett, "")
+
+        # wrong letter (and wrong place, of course)
+        # adjust the clue variable: _can NOT have_ this letter anywhere (except definites)
+        elif c == WRONG_WRONG:
+            # a wrong letter means this letter does not belong in any slot that is not already definite
+            for j, cans in enumerate(can):
+                if definite[j] == "":
+                    can[j] = cans.replace(lett, "")
+
+    # now filter out all the words that don't fit the patterns
     new_word_list = []
     for word in possible_words:
         good_word = True
+
         # is each of the definite letters in the word in the right place?
         for j, c in enumerate(word):
             if definite[j] != "" and c != definite[j]:
                 good_word = False
                 break
+
         # is each letter in the list of possibles for that position?
+        # note that for definites, the only possible letter is the definite letter
         if good_word:
             for j, c in enumerate(word):
                 if can[j].find(c) < 0:
                     good_word = False
                     break
+
         # does the word contain all required letters?
+        # note: definite letters are not counted in the required letters
         if good_word:
-            for c in must:
-                if word.find(c) < 0:
+            # first, count all the letters in this word
+            letter_count = {}
+            for lett in word:
+                if lett not in letter_count:
+                    letter_count[lett] = 1
+                else:
+                    letter_count[lett] = letter_count[lett] + 1
+
+            # now see if the word contains at least the number of each letter required so far
+            for lett, count in at_least.items():
+                if lett not in letter_count or letter_count[lett] < count:
                     good_word = False
                     break
+
+            # if this word passed all tests, add it to the new word list
             if good_word:
                 new_word_list.append(word)
+
     return new_word_list
 
 
@@ -364,7 +396,7 @@ def process_guesses(wordlist, WORDLE_list):
     """Process WORDLE word guesses until a full round is complete."""
     guess_list = []
     can = []
-    must = []
+    at_least = {}
     definite = []
     for _ in range(WORDLE_LENGTH):
         can.append(ALPHABET)
@@ -383,7 +415,7 @@ def process_guesses(wordlist, WORDLE_list):
         if result == RIGHT_RIGHT * WORDLE_LENGTH or RIGHT_WORD in result:
             break
         # cut out all the words that don't match our patterns
-        possibles = reduce_words(possibles, guess, result, can, must, definite)
+        possibles = reduce_words(possibles, guess, result, can, at_least, definite)
         # split the possibles list into non-used and previously-used words
         new_possibles, old_possibles = split_possibles(possibles, WORDLE_list)
         # calculate a probability of each word being correct (algorithm in progress)
@@ -467,3 +499,4 @@ def main(setup_filename):
 # start the main app
 if __name__ == '__main__':
     main(SETUP_FILENAME)
+# Evergreen branch on GITHUB
