@@ -499,4 +499,3 @@ def main(setup_filename):
 # start the main app
 if __name__ == '__main__':
     main(SETUP_FILENAME)
-# Evergreen branch on GITHUB
