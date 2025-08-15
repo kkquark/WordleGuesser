@@ -194,17 +194,23 @@ def reduce_words(possible_words, guess, result, can, at_least, definite):
     """Reduce the list of remaining possible words based on the latest (and previous) guesses and results."""
     # adjust the at_least dictionary based on the results of the latest guess
     # count the number of each letter in the word (to handle doubles and triples)
-    letter_count = {}
+    full_letter_count = {}
+    wrong_letter_count = {}
     for i, c in enumerate(result):
+        lett = guess[i]
         if c == RIGHT_RIGHT or c == RIGHT_WRONG:
-            lett = guess[i]
-            if lett not in letter_count:
-                letter_count[lett] = 1
+            if lett not in full_letter_count:
+                full_letter_count[lett] = 1
             else:
-                letter_count[lett] = letter_count[lett] + 1
+                full_letter_count[lett] += 1
+        if c == RIGHT_WRONG:
+            if lett not in wrong_letter_count:
+                wrong_letter_count[lett] = 1
+            else:
+                wrong_letter_count[lett] += 1
 
     # now transfer this knowledge to the at_least dictionary pattern
-    for lett, value in letter_count.items():
+    for lett, value in full_letter_count.items():
         if lett not in at_least:
             at_least[lett] = value
         else:
@@ -227,13 +233,23 @@ def reduce_words(possible_words, guess, result, can, at_least, definite):
             # this letter cannot be in this position
             can[i] = can[i].replace(lett, "")
 
+    # look at each of the wrong_wrong results for the letter positions in order to indicate where letters cannot go
+    for i, c in enumerate(result):
+        # make the letter easily available
+        lett = guess[i]
+
         # wrong letter (and wrong place, of course)
         # adjust the clue variable: _can NOT have_ this letter anywhere (except definites)
-        elif c == WRONG_WRONG:
-            # a wrong letter means this letter does not belong in any slot that is not already definite
-            for j, cans in enumerate(can):
-                if definite[j] == "":
-                    can[j] = cans.replace(lett, "")
+        if c == WRONG_WRONG:
+            if lett not in wrong_letter_count:
+                # a wrong letter that is not in the wrong_letter_count means this letter does not belong in any slot that is not definite
+                for j, cans in enumerate(can):
+                    if definite[j] == "":
+                        can[j] = cans.replace(lett, "")
+
+            else:
+                # this letter is in the wrong_letter_count, so it goes somewhere in the word, but not here
+                can[j] = can[j].replace(lett, "")
 
     # now filter out all the words that don't fit the patterns
     new_word_list = []
@@ -258,16 +274,16 @@ def reduce_words(possible_words, guess, result, can, at_least, definite):
         # note: definite letters are not counted in the required letters
         if good_word:
             # first, count all the letters in this word
-            letter_count = {}
+            full_letter_count = {}
             for lett in word:
-                if lett not in letter_count:
-                    letter_count[lett] = 1
+                if lett not in full_letter_count:
+                    full_letter_count[lett] = 1
                 else:
-                    letter_count[lett] = letter_count[lett] + 1
+                    full_letter_count[lett] = full_letter_count[lett] + 1
 
             # now see if the word contains at least the number of each letter required so far
             for lett, count in at_least.items():
-                if lett not in letter_count or letter_count[lett] < count:
+                if lett not in full_letter_count or full_letter_count[lett] < count:
                     good_word = False
                     break
 
